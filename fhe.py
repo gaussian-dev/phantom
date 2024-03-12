@@ -1,6 +1,9 @@
 from __future__ import annotations
 from numpy import uint32 as u32
 from numpy import uint8 as u8
+from numpy import float32 as f32
+import numpy as np
+import copy
 
 
 class FHEBool:
@@ -40,7 +43,7 @@ class FHEUint32:
         v = self.v * rhs.v
         return FHEUint32(v)
     
-    def __mul__(self, rhs: FHEBool) -> FHEUint32:
+    def mul_bool(self, rhs: FHEBool) -> FHEUint32:
         '''
         Zeros self based on whether rhs is true/false
         '''
@@ -70,14 +73,17 @@ class FHEUint32:
     def __str__(self):
         o = "FHEUint32(" + str(self.v) + ")"
         return o
+
+    def __repr__(self):
+        return self.__str__()
     
-    def min(self, other: FHEUint32)-> FHEBool:
+    def min(self, other: FHEUint32)-> FHEUint32:
         if self.v < other.v:
             return self
         else:
             return other
 
-    def max(self, other: FHEUint32)-> FHEBool:
+    def max(self, other: FHEUint32)-> FHEUint32:
         if self.v > other.v:
             return self
         else:
@@ -104,7 +110,7 @@ class FHEUint8:
         v = self.v * rhs.v
         return FHEUint32(v)
 
-    def __mul__(self, rhs: FHEBool) -> FHEBool:
+    def mul_bool(self, rhs: FHEBool) -> FHEBool:
         '''
         Zeros self based on whether rhs is true/false
         '''
@@ -136,6 +142,42 @@ class FHEUint8:
     def trivial(v: u8) -> FHEUint8:
         return FHEUint8(v)
 
+PRECISION = 40
+DEFAULT_TENSOR_LEN = 1 << 10
+
+class FHETensor(): 
+    def __init__(self, v: [f32]):
+        assert len(v) <= DEFAULT_TENSOR_LEN
+        self.v = copy.deepcopy(v)
+        while len(self.v) < DEFAULT_TENSOR_LEN:
+            self.v.append(f32(0.0))
+
+    def __add__(self, rhs: FHETensor):
+        out_v = [i0 + i1 for (i0, i1) in zip(self.v, rhs.v)]
+        return FHETensor(out_v)
+
+    def __sub__(self, rhs: FHETensor) -> FHETensor:
+        out_v = [i0 - i1 for (i0, i1) in zip(self.v, rhs.v)]
+        return FHETensor(out_v)
+    
+    def __mul__(self, rhs: FHETensor) -> FHETensor:
+        out_v = [i0 * i1 for (i0, i1) in zip(self.v, rhs.v)]
+        return FHETensor(out_v)
+
+    def inner_sum(self) -> FHETensor:
+        out = f32(0.0)
+        for el in self.v:
+            out += el
+        o = [out for _ in range(DEFAULT_TENSOR_LEN)]
+        return FHETensor(o)
+
+    def __str__(self):
+        o = "FHETensor( \n" + str(self.v) + "\n )"
+        return o
+
+    def __repr__(self):
+        return self.__str__()
+
 class CollectivePublicKey(): 
     def __init__(self):
         pass
@@ -148,6 +190,10 @@ class CollectivePublicKey():
 
     def encryptBool(self, v: bool) -> FHEBool:
         return FHEBool(v)
+
+    def encryptTensor(self, v: [f32]) -> FHETensor:
+        return FHETensor(v)
+
 
 def KeyGen() -> CollectivePublicKey: 
     '''
